@@ -12,6 +12,7 @@ router.post("/asignar", auth, authorize("admin"), turnosController.asignarTurnos
 router.get("/vista", auth, authorize("admin"), turnosController.vistaTurnosHTML);
 router.get("/mis-turnos", auth, turnosController.misTurnos);
 router.put('/:id', auth, authorize("admin"), turnosController.actualizarTurno);
+router.post('/asignar-automatico', auth, authorize('admin'), turnosController.generarYAsignarTurnos);
 
 // Nueva ruta DELETE para eliminar turno (solo admin)
 router.delete('/:id', auth, authorize('admin'), async (req, res) => {

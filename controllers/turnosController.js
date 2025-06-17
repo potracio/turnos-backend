@@ -34,6 +34,60 @@ exports.asignarTurnos = async (req, res) => {
   }
 };
 
+const User = require('../models/User');
+
+exports.generarYAsignarTurnos = async (req, res) => {
+  try {
+    const { year, month } = req.body;
+
+    if (!year || !month) {
+      return res.status(400).json({ mensaje: 'Debes enviar año y mes' });
+    }
+
+    const trabajadores = await User.find({ rol: 'trabajador' });
+    if (trabajadores.length === 0) {
+      return res.status(404).json({ mensaje: 'No hay trabajadores registrados' });
+    }
+
+    const turnos = [];
+    const diasEnMes = new Date(year, month, 0).getDate();
+    const turnosDisponibles = ['mañana', 'tarde'];
+
+    const esFinDeSemana = (fecha) => {
+      const dia = fecha.getDay();
+      return dia === 0 || dia === 6;
+    };
+
+    for (let trabajador of trabajadores) {
+      let diasLibres = 0;
+      let finesDeSemanaLibres = 0;
+
+      for (let d = 1; d <= diasEnMes; d++) {
+        const fecha = new Date(`${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}T00:00:00.000Z`);
+
+        if ((esFinDeSemana(fecha) && finesDeSemanaLibres < 3) || (!esFinDeSemana(fecha) && diasLibres < 8)) {
+          const descansar = Math.random() < 0.25;
+          if (descansar) {
+            turnos.push({ trabajador: trabajador._id, fecha, turno: 'libre' });
+            if (esFinDeSemana(fecha)) finesDeSemanaLibres++;
+            else diasLibres++;
+            continue;
+          }
+        }
+
+        const turno = turnosDisponibles[Math.floor(Math.random() * turnosDisponibles.length)];
+        turnos.push({ trabajador: trabajador._id, fecha, turno });
+      }
+    }
+
+    await Turno.insertMany(turnos);
+    res.status(201).json({ mensaje: '✅ Turnos generados correctamente', totalTurnos: turnos.length });
+  } catch (error) {
+    console.error('❌ Error en generarYAsignarTurnos:', error);
+    res.status(500).json({ mensaje: 'Error al generar turnos automáticamente' });
+  }
+};
+
 // Vista HTML de turnos (puedes adaptar la vista o usar template engine)
 exports.vistaTurnosHTML = async (req, res) => {
   try {
@@ -53,8 +107,38 @@ exports.vistaTurnosHTML = async (req, res) => {
     res.status(500).send('Error al cargar la vista de turnos');
   }
 };
+exports.misTurnos = async (req, res) => {
+  try {
+    const { year, month } = req.query;
+    const trabajadorId = req.user._id;
 
-// Obtener los turnos del usuario autenticado
+    if (!year || !month) {
+      return res.status(400).json({ mensaje: "Debes proporcionar año y mes para el filtrado" });
+    }
+
+    const turnos = await Turno.find({
+      trabajador: trabajadorId,
+      fecha: {
+        $gte: new Date(`${year}-${month}-01T00:00:00.000Z`),
+        $lte: new Date(`${year}-${month}-31T23:59:59.999Z`)
+      }
+    }).populate("trabajador", "nombre email rol");
+
+    console.log("📌 Turnos filtrados:", turnos); // ✅ Verifica en la consola del backend
+
+    res.json(turnos);
+  } catch (error) {
+    console.error("❌ Error en misTurnos:", error);
+    res.status(500).json({ mensaje: "Error al obtener tus turnos" });
+  }
+};
+
+
+
+
+
+
+/* // Obtener los turnos del usuario autenticado
 exports.misTurnos = async (req, res) => {
   try {
     const turnos = await Turno.find({ trabajador: req.user._id }).sort({ fecha: 1 });
@@ -63,7 +147,9 @@ exports.misTurnos = async (req, res) => {
     console.error('Error en misTurnos:', error);
     res.status(500).json({ mensaje: 'Error al obtener tus turnos' });
   }
-};
+};*/
+
+
 
 // Actualizar un turno por ID (solo admin)
 exports.actualizarTurno = async (req, res) => {
