@@ -1,8 +1,8 @@
-//TURNOSTRABAJADORES/controllers/turnosController.js
+// TURNOSTRABAJADORES/controllers/turnosController.js
 
 const Turno = require('../models/Turno');
+const User = require('../models/User');
 
-// Listado provisional de turnos (puedes adaptarlo según tu lógica)
 exports.listadoProvisional = async (req, res) => {
   try {
     const turnos = await Turno.find()
@@ -15,26 +15,19 @@ exports.listadoProvisional = async (req, res) => {
   }
 };
 
-// Asignar turnos (adaptar según tu lógica de asignación)
 exports.asignarTurnos = async (req, res) => {
   try {
-    // Ejemplo básico: recibe array de turnos para insertar
     const { turnos } = req.body;
     if (!Array.isArray(turnos)) {
       return res.status(400).json({ mensaje: 'Debe enviar un arreglo de turnos' });
     }
-
-    // Aquí podrías validar cada turno y verificar conflictos
     await Turno.insertMany(turnos);
-
     res.status(201).json({ mensaje: 'Turnos asignados correctamente' });
   } catch (error) {
     console.error('Error en asignarTurnos:', error);
     res.status(500).json({ mensaje: 'Error al asignar turnos' });
   }
 };
-
-const User = require('../models/User');
 
 exports.generarYAsignarTurnos = async (req, res) => {
   try {
@@ -88,7 +81,6 @@ exports.generarYAsignarTurnos = async (req, res) => {
   }
 };
 
-// Vista HTML de turnos (puedes adaptar la vista o usar template engine)
 exports.vistaTurnosHTML = async (req, res) => {
   try {
     const turnos = await Turno.find()
@@ -107,25 +99,33 @@ exports.vistaTurnosHTML = async (req, res) => {
     res.status(500).send('Error al cargar la vista de turnos');
   }
 };
+
 exports.misTurnos = async (req, res) => {
   try {
     const { year, month } = req.query;
-    const trabajadorId = req.user._id;
+    const trabajadorId = req.user?._id;
+
+    console.log("📌 Usuario autenticado en misTurnos:", req.user?.email);
+
+    if (!trabajadorId) {
+      return res.status(401).json({ mensaje: "Usuario no autenticado" });
+    }
 
     if (!year || !month) {
       return res.status(400).json({ mensaje: "Debes proporcionar año y mes para el filtrado" });
     }
 
+    const formattedMonth = String(month).padStart(2, '0');
+
     const turnos = await Turno.find({
       trabajador: trabajadorId,
       fecha: {
-        $gte: new Date(`${year}-${month}-01T00:00:00.000Z`),
-        $lte: new Date(`${year}-${month}-31T23:59:59.999Z`)
+        $gte: new Date(`${year}-${formattedMonth}-01T00:00:00.000Z`),
+        $lte: new Date(`${year}-${formattedMonth}-31T23:59:59.999Z`)
       }
     }).populate("trabajador", "nombre email rol");
 
-    console.log("📌 Turnos filtrados:", turnos); // ✅ Verifica en la consola del backend
-
+    console.log("📌 Turnos encontrados:", turnos.length);
     res.json(turnos);
   } catch (error) {
     console.error("❌ Error en misTurnos:", error);
@@ -133,25 +133,6 @@ exports.misTurnos = async (req, res) => {
   }
 };
 
-
-
-
-
-
-/* // Obtener los turnos del usuario autenticado
-exports.misTurnos = async (req, res) => {
-  try {
-    const turnos = await Turno.find({ trabajador: req.user._id }).sort({ fecha: 1 });
-    res.json(turnos);
-  } catch (error) {
-    console.error('Error en misTurnos:', error);
-    res.status(500).json({ mensaje: 'Error al obtener tus turnos' });
-  }
-};*/
-
-
-
-// Actualizar un turno por ID (solo admin)
 exports.actualizarTurno = async (req, res) => {
   try {
     const { id } = req.params;
@@ -169,7 +150,6 @@ exports.actualizarTurno = async (req, res) => {
   }
 };
 
-// Eliminar un turno por ID (solo admin)
 exports.eliminarTurno = async (req, res) => {
   try {
     const turno = await Turno.findByIdAndDelete(req.params.id);
@@ -183,7 +163,6 @@ exports.eliminarTurno = async (req, res) => {
   }
 };
 
-// Obtener turnos paginados con filtro opcional
 exports.obtenerTurnosPaginados = async (filtro, skip, limit) => {
   return await Turno.find(filtro)
     .populate('trabajador', 'nombre email rol')
@@ -192,7 +171,6 @@ exports.obtenerTurnosPaginados = async (filtro, skip, limit) => {
     .sort({ fecha: 1 });
 };
 
-// Contar turnos con filtro
 exports.contarTurnos = async (filtro) => {
   return await Turno.countDocuments(filtro);
 };
